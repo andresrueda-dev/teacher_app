@@ -1,9 +1,11 @@
 import streamlit as st
 
 def apply_filters(df):
-    st.sidebar.header("🎯 Filtros")
+    st.sidebar.header("Filtros")
 
-    grupo = st.sidebar.selectbox("Grupo", ["Todos"] + sorted(df["Grupo"].unique()))
+    grupos = sorted(df["Grupo"].dropna().unique())
+
+    grupo = st.sidebar.selectbox("Grupo", ["Todos"] + list(grupos))
 
     if grupo != "Todos":
         df = df[df["Grupo"] == grupo]
@@ -11,6 +13,6 @@ def apply_filters(df):
     buscar = st.sidebar.text_input("Buscar alumno")
 
     if buscar:
-        df = df[df["Alumno"].str.contains(buscar, case=False)]
+        df = df[df["Alumno"].str.contains(buscar, case=False, na=False)]
 
     return df

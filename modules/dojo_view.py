@@ -1,10 +1,12 @@
 import streamlit as st
 
 def show_dojo(df):
-    st.subheader("🎮 Vista ClassDojo")
+    st.subheader("Vista tipo ClassDojo")
 
-    for grupo in df["Grupo"].unique():
-        st.markdown(f"### 📘 Grupo {grupo}")
+    grupos = df["Grupo"].unique()
+
+    for grupo in grupos:
+        st.markdown(f"### Grupo {grupo}")
 
         grupo_df = df[df["Grupo"] == grupo]
 
@@ -17,13 +19,11 @@ def show_dojo(df):
                 f"""
                 <div style="
                     background-color: {color};
-                    padding: 15px;
-                    border-radius: 15px;
+                    padding: 10px;
+                    border-radius: 10px;
                     text-align: center;
-                    color: black;
-                    font-weight: bold;
                 ">
-                    {row['Alumno']}<br>
+                    <b>{row['Alumno']}</b><br>
                     ⭐ {row['Puntos']}
                 </div>
                 """,

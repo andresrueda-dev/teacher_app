@@ -1,39 +1,36 @@
 import streamlit as st
 
 def show_dojo(df):
-    st.subheader("Vista tipo ClassDojo")
+    st.subheader("🎮 Modo Clase en Vivo")
 
-    grupos = df["Grupo"].unique()
+    updated_rows = []
 
-    for grupo in grupos:
-        st.markdown(f"### Grupo {grupo}")
+    for grupo in df["Grupo"].unique():
+        st.markdown(f"### 📘 Grupo {grupo}")
 
         grupo_df = df[df["Grupo"] == grupo]
 
-        cols = st.columns(5)
-
         for i, row in grupo_df.iterrows():
-            # 🎯 Color basado en puntos
-            if row["Puntos"] >= 7:
-                color = "#00FF9C"
-            elif row["Puntos"] >= 4:
-                color = "#FFD700"
-            else:
-                color = "#FF4B4B"
 
-            # 📦 Tarjeta visual
-            with cols[i % 5]:
-                st.markdown(f"""
-                <div style="
-                    background-color:{color};
-                    padding:15px;
-                    border-radius:15px;
-                    text-align:center;
-                    margin-bottom:10px;
-                    color:black;
-                    font-weight:bold;
-                ">
-                    {row["Nombre"]}<br>
-                    ⭐ {row["Puntos"]}
-                </div>
-                """, unsafe_allow_html=True)
+            col1, col2, col3, col4 = st.columns([3,1,1,1])
+
+            with col1:
+                st.markdown(f"**{row['Alumno']}**")
+
+            with col2:
+                st.write(f"⭐ {row['Puntos']}")
+
+            # 🔥 BOTÓN SUMAR
+            with col3:
+                if st.button("➕", key=f"plus_{i}"):
+                    row["Puntos"] += 1
+                    row["Estado"] = 1
+
+            # 🔥 BOTÓN RESTAR
+            with col4:
+                if st.button("➖", key=f"minus_{i}"):
+                    row["Puntos"] = max(0, row["Puntos"] - 1)
+
+            updated_rows.append(row)
+
+    return df.__class__(updated_rows)

@@ -6,7 +6,10 @@ from modules.dashboard import show_dashboard
 from modules.alerts import show_alerts
 from modules.dojo_view import show_dojo
 from modules.competition import show_competition, show_ranking
+from modules.lang import get_texts
 
+lang_option = st.sidebar.selectbox("Language / Idioma", ["EN", "ES"])
+T = get_texts(lang_option)
 # =========================
 # CONFIGURACIÓN GENERAL
 # =========================

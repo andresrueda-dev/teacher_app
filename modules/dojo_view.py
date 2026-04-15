@@ -3,34 +3,44 @@ import streamlit as st
 def show_dojo(df):
     st.subheader("🎮 Modo Clase en Vivo")
 
-    updated_rows = []
+    # 🔥 inicializar estado
+    if "data" not in st.session_state:
+        st.session_state.data = df.copy()
 
-    for grupo in df["Grupo"].unique():
-        st.markdown(f"### 📘 Grupo {grupo}")
+    data = st.session_state.data
 
-        grupo_df = df[df["Grupo"] == grupo]
+    grupos = data["Grupo"].unique()
+
+    for grupo in grupos:
+        st.markdown(f"### Grupo {grupo}")
+
+        grupo_df = data[data["Grupo"] == grupo]
 
         for i, row in grupo_df.iterrows():
 
-            col1, col2, col3, col4 = st.columns([3,1,1,1])
+            col1, col2, col3, col4 = st.columns([4,1,1,1])
 
+            # 👤 nombre
             with col1:
-                st.markdown(f"**{row['Alumno']}**")
+                st.write(row["Alumno"])
 
+            # ⭐ puntos
             with col2:
                 st.write(f"⭐ {row['Puntos']}")
 
-            # 🔥 BOTÓN SUMAR
+            # ➕ sumar
             with col3:
                 if st.button("➕", key=f"plus_{i}"):
-                    row["Puntos"] += 1
-                    row["Estado"] = 1
+                    st.session_state.data.at[i, "Puntos"] += 1
+                    st.session_state.data.at[i, "Estado"] = 1
+                    st.rerun()
 
-            # 🔥 BOTÓN RESTAR
+            # ➖ restar
             with col4:
                 if st.button("➖", key=f"minus_{i}"):
-                    row["Puntos"] = max(0, row["Puntos"] - 1)
+                    st.session_state.data.at[i, "Puntos"] = max(
+                        0, st.session_state.data.at[i, "Puntos"] - 1
+                    )
+                    st.rerun()
 
-            updated_rows.append(row)
-
-    return df.__class__(updated_rows)
+    return st.session_state.data

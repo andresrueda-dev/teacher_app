@@ -5,6 +5,7 @@ from modules.metrics import show_metrics
 from modules.dashboard import show_dashboard
 from modules.alerts import show_alerts
 from modules.dojo_view import show_dojo
+from modules.competition import show_competition, show_ranking
 
 # =========================
 # CONFIGURACIÓN GENERAL

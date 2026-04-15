@@ -9,28 +9,32 @@ from modules.dojo_view import show_dojo
 st.set_page_config(page_title="Teacher Control Pro", layout="wide")
 
 st.title("📊 Teacher Control System")
-st.caption("Nivel PRO - ClassDojo Style")
 
-# LOAD DATA
+# 🔥 Cargar datos
 df = load_data()
 
-# FILTERS
+# 🔥 Validación
+if df.empty:
+    st.error("No hay datos disponibles")
+    st.stop()
+
+# 🔥 Filtros
 df = apply_filters(df)
 
-# METRICS
+# 🔥 KPIs
 show_metrics(df)
 
 st.divider()
 
-# DASHBOARD
+# 🔥 Dashboard
 show_dashboard(df)
 
 st.divider()
 
-# ALERTS
+# 🔥 Alertas
 show_alerts(df)
 
 st.divider()
 
-# DOJO VIEW
+# 🔥 Vista tipo dojo
 show_dojo(df)

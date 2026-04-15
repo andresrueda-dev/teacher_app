@@ -6,23 +6,31 @@ from modules.dashboard import show_dashboard
 from modules.alerts import show_alerts
 from modules.dojo_view import show_dojo
 
-# CONFIG
 st.set_page_config(page_title="Teacher Control Pro", layout="wide")
 
-# LOAD
+st.title("📊 Teacher Control System")
+st.caption("Nivel PRO - ClassDojo Style")
+
+# Cargar datos
 df = load_data()
 
-# FILTROS
-df_filtered = apply_filters(df)
+# Filtros
+df = apply_filters(df)
 
 # KPIs
-show_metrics(df_filtered)
+show_metrics(df)
 
-# DASHBOARD
-show_dashboard(df_filtered)
+st.divider()
 
-# ALERTAS
-show_alerts(df_filtered)
+# Dashboard
+show_dashboard(df)
 
-# DOJO VIEW
-show_dojo(df_filtered)
+st.divider()
+
+# Alertas
+show_alerts(df)
+
+st.divider()
+
+# Vista visual
+show_dojo(df)

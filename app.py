@@ -1,108 +1,71 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
-import random
 
 st.set_page_config(layout="wide")
 
 # =========================
-# 🔐 LOGIN SIMPLE (ROL)
+# 🎯 SIDEBAR (NAVEGACIÓN)
 # =========================
-role = st.sidebar.selectbox("Select Role / Seleccionar Rol", ["Teacher", "Director", "Student"])
+menu = st.sidebar.radio("Menu", [
+    "Dashboard",
+    "Student Intelligence",
+    "Alerts Center",
+    "Reports"
+])
 
-# =========================
-# 📊 DATA BASE
-# =========================
-students = [
-    {"name": "AXEL TORRES", "group": "1A", "last_login": "2026-01-30"},
-    {"name": "EDUARDO VILCHIS", "group": "1A", "last_login": "2026-03-20"},
-    {"name": "MARIANA FALOFUL", "group": "1B", "last_login": "2026-04-04"},
-    {"name": "ZOE RANGEL", "group": "1B", "last_login": None},
-]
+st.title("⚡ Academic Intelligence System")
 
 # =========================
-# 🧠 LÓGICA
+# 📊 DASHBOARD
 # =========================
-def classify(last_login):
-    if last_login is None:
-        return "critical"
-    days = (datetime.now() - datetime.strptime(last_login, "%Y-%m-%d")).days
-    if days <= 7:
-        return "active"
-    elif days <= 30:
-        return "risk"
-    return "critical"
+if menu == "Dashboard":
+    st.subheader("Overview")
 
-def metrics(status):
-    if status == "active":
-        return random.randint(85,100), random.randint(80,100), "Low"
-    elif status == "risk":
-        return random.randint(60,84), random.randint(50,79), "Medium"
-    else:
-        return random.randint(0,59), random.randint(10,49), "High"
+    col1, col2, col3, col4 = st.columns(4)
 
-data = []
-for s in students:
-    status = classify(s["last_login"])
-    grade, participation, risk = metrics(status)
-
-    data.append({
-        "Name": s["name"],
-        "Group": s["group"],
-        "Status": status,
-        "Grade": grade,
-        "Participation": participation,
-        "Fail Risk": risk
-    })
-
-df = pd.DataFrame(data)
+    col1.metric("Students", len(df))
+    col2.metric("Critical", len(df[df["AI_Status"]=="CRITICAL"]))
+    col3.metric("Risk", len(df[df["AI_Status"]=="RISK"]))
+    col4.metric("Avg Grade", int(df["Grade"].mean()))
 
 # =========================
-# 👨‍🏫 TEACHER VIEW
+# 📋 STUDENT INTELLIGENCE
 # =========================
-if role == "Teacher":
-    st.title("👨‍🏫 Teacher Dashboard")
+elif menu == "Student Intelligence":
+    st.subheader("Student Analysis")
 
-    group = st.selectbox("Select Group", df["Group"].unique())
-    df_group = df[df["Group"] == group]
+    def highlight(val):
+        if val == "CRITICAL":
+            return "background-color:red; color:white"
+        elif val == "RISK":
+            return "background-color:orange"
+        return "background-color:green; color:white"
 
-    st.dataframe(df_group, use_container_width=True)
-
-    st.subheader("⚠️ Students in Risk")
-    st.write(df_group[df_group["Status"] != "active"])
-
-# =========================
-# 🧑‍💼 DIRECTOR VIEW
-# =========================
-elif role == "Director":
-    st.title("🧑‍💼 Institutional Dashboard")
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total Students", len(df))
-    col2.metric("Critical", len(df[df["Status"]=="critical"]))
-    col3.metric("At Risk", len(df[df["Status"]=="risk"]))
-
-    st.bar_chart(df["Status"].value_counts())
-
-    st.subheader("Groups Performance")
-    st.dataframe(df.groupby("Group").mean(numeric_only=True))
+    st.dataframe(
+        df.style.applymap(highlight, subset=["AI_Status"]),
+        use_container_width=True
+    )
 
 # =========================
-# 🎓 STUDENT VIEW
+# ⚠️ ALERT CENTER
 # =========================
-else:
-    st.title("🎓 Student Feedback System")
+elif menu == "Alerts Center":
+    st.subheader("Critical Students")
 
-    student_name = st.selectbox("Select your name", df["Name"])
-    student = df[df["Name"] == student_name].iloc[0]
+    critical = df[df["AI_Status"]=="CRITICAL"]
 
-    st.metric("Grade", student["Grade"])
-    st.metric("Participation", student["Participation"])
-    st.metric("Risk", student["Fail Risk"])
+    for _, row in critical.iterrows():
+        st.error(f"{row['Name']} ({row['Group']}) → {row['Action']}")
 
-    if student["Fail Risk"] == "High":
-        st.error("⚠️ You are at risk of failing. Submit pending work immediately.")
-    elif student["Fail Risk"] == "Medium":
-        st.warning("You need to improve your participation.")
-    else:
-        st.success("Great performance! Keep going.")
+# =========================
+# 📄 REPORTS
+# =========================
+elif menu == "Reports":
+    st.subheader("Export Data")
+
+    st.download_button(
+        "Download CSV Report",
+        df.to_csv(index=False),
+        file_name="academic_report.csv",
+        mime="text/csv"
+    )

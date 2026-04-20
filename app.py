@@ -11,7 +11,7 @@ st.title("⚡ Academic Intelligence System")
 DATA_FILE = "data/students.csv"
 
 # =========================
-# LOAD BASE (session)
+# LOAD BASE
 # =========================
 if "df" not in st.session_state:
     if os.path.exists(DATA_FILE):
@@ -22,7 +22,7 @@ if "df" not in st.session_state:
 df = st.session_state.df
 
 # =========================
-# MULTI UPLOAD (CLASDOJO FIX)
+# MULTI UPLOAD (AJUSTADO A TU CSV)
 # =========================
 uploaded_files = st.file_uploader(
     "Upload ClassDojo reports",
@@ -34,40 +34,25 @@ if uploaded_files:
     dfs = []
 
     for file in uploaded_files:
-        try:
-            temp_df = pd.read_csv(file, sep=";", encoding="latin-1")
-        except:
-            temp_df = pd.read_csv(file)
+        # 🔥 LEER CORRECTO (quita ï»¿)
+        temp_df = pd.read_csv(file, sep=",", encoding="utf-8-sig")
 
-        # -------- DETECT NAME COLUMN --------
-        name_col = None
-        for col in temp_df.columns:
-            col_l = col.lower()
-            if "student" in col_l or "name" in col_l or "nombre" in col_l:
-                name_col = col
-                break
-
-        if name_col is None:
-            st.error(f"❌ No se encontró nombre en {file.name}")
-            st.write("Columnas:", list(temp_df.columns))
+        # 🔥 RENOMBRAR COLUMNA REAL
+        if "Estudiante" in temp_df.columns:
+            temp_df = temp_df.rename(columns={"Estudiante": "Nombre"})
+        else:
+            st.error(f"No se encontró 'Estudiante' en {file.name}")
+            st.write(list(temp_df.columns))
             continue
 
-        temp_df = temp_df.rename(columns={name_col: "Nombre"})
+        # 🔥 CALCULAR PUNTOS REAL
+        positivos = pd.to_numeric(temp_df["Positivo"], errors="coerce").fillna(0)
+        negativos = pd.to_numeric(temp_df["Necesita trabajo"], errors="coerce").fillna(0)
 
-        # -------- DETECT POINTS COLUMN --------
-        puntos_col = None
-        for col in temp_df.columns:
-            col_l = col.lower()
-            if "total" in col_l or "points" in col_l:
-                puntos_col = col
-                break
-
-        if puntos_col:
-            temp_df["Puntos"] = pd.to_numeric(temp_df[puntos_col], errors="coerce").fillna(0)
-        else:
-            temp_df["Puntos"] = 0
+        temp_df["Puntos"] = positivos - negativos
 
         temp_df = temp_df[["Nombre", "Puntos"]]
+
         dfs.append(temp_df)
 
     if dfs:

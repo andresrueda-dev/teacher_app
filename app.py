@@ -7,13 +7,12 @@ import plotly.express as px
 # CONFIG
 # =========================
 st.set_page_config(page_title="Academic Intelligence System", layout="wide")
-
-st.markdown("## ⚡ Academic Intelligence System 🎮")
+st.markdown("## ⚡ Academic Intelligence System 🎮🧠")
 
 DATA_FILE = "data/students.csv"
 
 # =========================
-# LOAD
+# LOAD BASE
 # =========================
 if "df" not in st.session_state:
     if os.path.exists(DATA_FILE):
@@ -24,30 +23,34 @@ if "df" not in st.session_state:
 df = st.session_state.df
 
 # =========================
-# LEVEL SYSTEM
+# SISTEMA EXPERTO
 # =========================
-def get_level(puntos):
-    if puntos >= 10:
-        return "🔥 Leyenda"
-    elif puntos >= 5:
-        return "⭐ Pro"
-    elif puntos >= 0:
-        return "🙂 Novato"
-    else:
-        return "⚠️ Riesgo"
+def get_level(p):
+    if p >= 10: return "🔥 Leyenda"
+    elif p >= 5: return "⭐ Pro"
+    elif p >= 0: return "🙂 Novato"
+    else: return "⚠️ Riesgo"
 
-def get_color(puntos):
-    if puntos >= 10:
-        return "#00ff88"
-    elif puntos >= 5:
-        return "#00c3ff"
-    elif puntos >= 0:
-        return "#ffaa00"
-    else:
-        return "#ff4b4b"
+def get_status(p):
+    if p >= 10: return "Líder"
+    elif p >= 5: return "Estable"
+    elif p >= 0: return "Atención leve"
+    else: return "Riesgo alto"
+
+def decision_engine(p):
+    if p >= 10: return "Asignar liderazgo"
+    elif p >= 5: return "Refuerzo positivo"
+    elif p >= 0: return "Seguimiento cercano"
+    else: return "Intervención directa"
+
+def get_color(p):
+    if p >= 10: return "#00ff88"
+    elif p >= 5: return "#00c3ff"
+    elif p >= 0: return "#ffaa00"
+    else: return "#ff4b4b"
 
 # =========================
-# UPLOAD
+# UPLOAD CLASDOJO REAL
 # =========================
 uploaded_files = st.file_uploader(
     "📂 Upload ClassDojo reports",
@@ -61,18 +64,19 @@ if uploaded_files:
     for file in uploaded_files:
         temp_df = pd.read_csv(file, sep=",", encoding="utf-8-sig")
 
-        group_name = file.name.split("_")[1] if "_" in file.name else file.name
+        # grupo desde nombre archivo
+        grupo = file.name.split("_")[1] if "_" in file.name else file.name
 
+        # columna real
         temp_df = temp_df.rename(columns={"Estudiante": "Nombre"})
 
         positivos = pd.to_numeric(temp_df["Positivo"], errors="coerce").fillna(0)
         negativos = pd.to_numeric(temp_df["Necesita trabajo"], errors="coerce").fillna(0)
 
         temp_df["Puntos"] = positivos - negativos
-        temp_df["Grupo"] = group_name
+        temp_df["Grupo"] = grupo
 
         temp_df = temp_df[["Nombre", "Puntos", "Grupo"]]
-
         dfs.append(temp_df)
 
     combined_df = pd.concat(dfs, ignore_index=True)
@@ -84,7 +88,7 @@ if uploaded_files:
     os.makedirs("data", exist_ok=True)
     df.to_csv(DATA_FILE, index=False)
 
-    st.success("✅ Datos cargados")
+    st.success("✅ Datos cargados correctamente")
 
 # =========================
 # SIDEBAR
@@ -96,36 +100,37 @@ menu = st.sidebar.radio("Menu", [
     "📊 Reports"
 ])
 
+# filtro grupo
 if not df.empty:
     grupo_sel = st.sidebar.selectbox("🎯 Grupo", df["Grupo"].unique())
     df = df[df["Grupo"] == grupo_sel]
 
 # =========================
-# DASHBOARD PRO
+# DASHBOARD EXPERTO
 # =========================
 if menu == "🎮 Dashboard":
 
-    st.markdown("### 🏆 Ranking del Grupo")
+    st.markdown("### 🧠 Sistema Experto del Grupo")
 
     if not df.empty:
 
         ranking = df.sort_values("Puntos", ascending=False)
 
         for _, row in ranking.iterrows():
-
-            level = get_level(row["Puntos"])
-            color = get_color(row["Puntos"])
-
+            p = row["Puntos"]
             st.markdown(f"""
             <div style="
-                background-color:{color};
+                background-color:{get_color(p)};
                 padding:15px;
                 border-radius:15px;
                 margin-bottom:10px;
                 color:black;
-                font-weight:bold;
             ">
-                🎮 {row['Nombre']} | {row['Puntos']} pts | {level}
+                <b>🎮 {row['Nombre']}</b><br>
+                Puntos: {p}<br>
+                Nivel: {get_level(p)}<br>
+                Estado: {get_status(p)}<br>
+                🧠 Acción: {decision_engine(p)}
             </div>
             """, unsafe_allow_html=True)
 
@@ -138,11 +143,10 @@ if menu == "🎮 Dashboard":
             color="Puntos",
             title="📊 Performance"
         )
-
         st.plotly_chart(fig, use_container_width=True)
 
 # =========================
-# CONTROL (BOTONES PRO)
+# CONTROL GAMIFICADO
 # =========================
 elif menu == "⚡ Control":
 
@@ -177,19 +181,27 @@ elif menu == "⚡ Control":
             st.success(f"{student} → {delta} pts")
 
 # =========================
-# ALERTS
+# ALERTAS INTELIGENTES
 # =========================
 elif menu == "🚨 Alerts":
 
-    st.markdown("### 🚨 Atención")
+    st.markdown("### 🚨 Alertas Inteligentes")
 
     if not df.empty:
-        for _, row in df.iterrows():
-            if row["Puntos"] < 0:
-                st.error(f"{row['Nombre']} necesita intervención")
+
+        riesgo = df[df["Puntos"] < 0]
+        lideres = df[df["Puntos"] >= 10]
+
+        st.markdown("#### ⚠️ Riesgo alto")
+        for _, row in riesgo.iterrows():
+            st.error(f"{row['Nombre']} → intervención inmediata")
+
+        st.markdown("#### 🏆 Líderes")
+        for _, row in lideres.iterrows():
+            st.success(f"{row['Nombre']} → líder del grupo")
 
 # =========================
-# REPORTS
+# REPORTES
 # =========================
 elif menu == "📊 Reports":
 

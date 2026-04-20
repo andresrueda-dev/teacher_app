@@ -13,7 +13,7 @@ DATA_DIR = "data"
 os.makedirs(DATA_DIR, exist_ok=True)
 
 # =========================
-# AUTH SIMPLE (PLATAFORMA BASE)
+# LOGIN SIMPLE
 # =========================
 USERS = {
     "andres": "1234"
@@ -55,6 +55,66 @@ if "df" not in st.session_state:
 df = st.session_state.df
 
 # =========================
+# CONTROL DE CARGA
+# =========================
+if "data_loaded" not in st.session_state:
+    st.session_state.data_loaded = os.path.exists(DATA_FILE)
+
+if not st.session_state.data_loaded:
+
+    st.markdown("### 📂 Cargar datos (solo una vez)")
+
+    uploaded_files = st.file_uploader(
+        "Sube reportes de ClassDojo",
+        type=["csv"],
+        accept_multiple_files=True
+    )
+
+    if uploaded_files:
+        dfs = []
+
+        for file in uploaded_files:
+            temp_df = pd.read_csv(file, sep=",", encoding="utf-8-sig")
+
+            grupo = file.name.split("_")[1] if "_" in file.name else file.name
+
+            temp_df = temp_df.rename(columns={"Estudiante": "Nombre"})
+
+            positivos = pd.to_numeric(temp_df["Positivo"], errors="coerce").fillna(0)
+            negativos = pd.to_numeric(temp_df["Necesita trabajo"], errors="coerce").fillna(0)
+
+            temp_df["Puntos"] = positivos - negativos
+            temp_df["Grupo"] = grupo
+
+            temp_df = temp_df[["Nombre", "Puntos", "Grupo"]]
+
+            dfs.append(temp_df)
+
+        combined_df = pd.concat(dfs, ignore_index=True)
+        combined_df = combined_df.groupby(["Nombre", "Grupo"], as_index=False).sum()
+
+        st.session_state.df = combined_df
+        combined_df.to_csv(DATA_FILE, index=False)
+
+        st.session_state.data_loaded = True
+
+        st.success("✅ Datos guardados")
+        st.rerun()
+
+# =========================
+# RESET
+# =========================
+if st.sidebar.button("🔄 Reset datos"):
+    if os.path.exists(DATA_FILE):
+        os.remove(DATA_FILE)
+
+    st.session_state.df = pd.DataFrame(columns=["Nombre", "Puntos", "Grupo"])
+    st.session_state.data_loaded = False
+
+    st.success("Datos eliminados")
+    st.rerun()
+
+# =========================
 # SISTEMA EXPERTO
 # =========================
 def get_level(p):
@@ -87,44 +147,7 @@ def get_color(p):
 is_mobile = st.sidebar.toggle("📱 Modo móvil", value=True)
 
 # =========================
-# UPLOAD CLASDOJO
-# =========================
-uploaded_files = st.file_uploader(
-    "📂 Upload ClassDojo reports",
-    type=["csv"],
-    accept_multiple_files=True
-)
-
-if uploaded_files:
-    dfs = []
-
-    for file in uploaded_files:
-        temp_df = pd.read_csv(file, sep=",", encoding="utf-8-sig")
-
-        grupo = file.name.split("_")[1] if "_" in file.name else file.name
-
-        temp_df = temp_df.rename(columns={"Estudiante": "Nombre"})
-
-        positivos = pd.to_numeric(temp_df["Positivo"], errors="coerce").fillna(0)
-        negativos = pd.to_numeric(temp_df["Necesita trabajo"], errors="coerce").fillna(0)
-
-        temp_df["Puntos"] = positivos - negativos
-        temp_df["Grupo"] = grupo
-
-        temp_df = temp_df[["Nombre", "Puntos", "Grupo"]]
-        dfs.append(temp_df)
-
-    combined_df = pd.concat(dfs, ignore_index=True)
-    combined_df = combined_df.groupby(["Nombre", "Grupo"], as_index=False).sum()
-
-    st.session_state.df = combined_df
-    df = combined_df
-
-    df.to_csv(DATA_FILE, index=False)
-    st.success("✅ Datos cargados")
-
-# =========================
-# SIDEBAR MENU
+# MENU
 # =========================
 menu = st.sidebar.radio("Menu", [
     "🎮 Dashboard",
@@ -133,13 +156,15 @@ menu = st.sidebar.radio("Menu", [
     "📊 Reports"
 ])
 
+# =========================
 # FILTRO GRUPO
+# =========================
 if not df.empty:
     grupo_sel = st.sidebar.selectbox("🎯 Grupo", df["Grupo"].unique())
     df = df[df["Grupo"] == grupo_sel]
 
 # =========================
-# DASHBOARD EXPERTO
+# DASHBOARD
 # =========================
 if menu == "🎮 Dashboard":
 
@@ -149,10 +174,8 @@ if menu == "🎮 Dashboard":
 
         ranking = df.sort_values("Puntos", ascending=False)
 
-        # móvil compacto
         if is_mobile:
-            top = ranking.head(3)
-            for _, row in top.iterrows():
+            for _, row in ranking.head(3).iterrows():
                 st.success(f"{row['Nombre']} → {row['Puntos']} pts")
 
         for _, row in ranking.iterrows():
@@ -174,20 +197,11 @@ if menu == "🎮 Dashboard":
             </div>
             """, unsafe_allow_html=True)
 
-        st.markdown("---")
-
-        fig = px.bar(
-            ranking,
-            x="Nombre",
-            y="Puntos",
-            color="Puntos",
-            title="📊 Performance"
-        )
-
+        fig = px.bar(df, x="Nombre", y="Puntos", color="Puntos")
         st.plotly_chart(fig, use_container_width=True)
 
 # =========================
-# CONTROL GAMIFICADO
+# CONTROL
 # =========================
 elif menu == "⚡ Control":
 
@@ -199,26 +213,16 @@ elif menu == "⚡ Control":
 
         if is_mobile:
             col1, col2 = st.columns(2)
-
-            if col1.button("➕ +1", use_container_width=True):
-                delta = 1
-            elif col2.button("➖ -1", use_container_width=True):
-                delta = -1
-            else:
-                delta = 0
+            if col1.button("➕ +1"): delta = 1
+            elif col2.button("➖ -1"): delta = -1
+            else: delta = 0
         else:
             col1, col2, col3, col4 = st.columns(4)
-
-            if col1.button("➕ +1"):
-                delta = 1
-            elif col2.button("🔥 +3"):
-                delta = 3
-            elif col3.button("⚠️ -1"):
-                delta = -1
-            elif col4.button("💀 -3"):
-                delta = -3
-            else:
-                delta = 0
+            if col1.button("➕ +1"): delta = 1
+            elif col2.button("🔥 +3"): delta = 3
+            elif col3.button("⚠️ -1"): delta = -1
+            elif col4.button("💀 -3"): delta = -3
+            else: delta = 0
 
         if delta != 0:
             idx = st.session_state.df[
@@ -232,26 +236,19 @@ elif menu == "⚡ Control":
             st.success(f"{student}: {delta} pts")
 
 # =========================
-# ALERTS INTELIGENTES
+# ALERTS
 # =========================
 elif menu == "🚨 Alerts":
 
-    st.markdown("### 🚨 Alertas Inteligentes")
+    st.markdown("### 🚨 Alertas")
 
     if not df.empty:
-        riesgo = df[df["Puntos"] < 0]
-        lideres = df[df["Puntos"] >= 10]
-
-        st.markdown("#### ⚠️ Riesgo alto")
-        for _, row in riesgo.iterrows():
-            st.error(f"{row['Nombre']} → intervención")
-
-        st.markdown("#### 🏆 Líderes")
-        for _, row in lideres.iterrows():
-            st.success(f"{row['Nombre']} → líder")
+        for _, row in df.iterrows():
+            if row["Puntos"] < 0:
+                st.error(f"{row['Nombre']} necesita atención")
 
 # =========================
-# REPORTES
+# REPORTS
 # =========================
 elif menu == "📊 Reports":
 

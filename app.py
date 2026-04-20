@@ -11,7 +11,7 @@ st.title("⚡ Academic Intelligence System")
 DATA_FILE = "data/students.csv"
 
 # =========================
-# LOAD BASE DATA
+# LOAD BASE (session)
 # =========================
 if "df" not in st.session_state:
     if os.path.exists(DATA_FILE):
@@ -22,36 +22,7 @@ if "df" not in st.session_state:
 df = st.session_state.df
 
 # =========================
-# READ CSV SAFE (CLASDOJO FIX)
-# =========================
-def read_csv_safe(file):
-    try:
-        return pd.read_csv(file, sep=",", encoding="utf-8")
-    except:
-        try:
-            return pd.read_csv(file, sep=";", encoding="latin-1")
-        except:
-            return pd.read_csv(file)
-
-# =========================
-# FIND NAME COLUMN (ROBUSTO)
-# =========================
-def get_name_column(df):
-    cols = [c.lower() for c in df.columns]
-
-    for i, c in enumerate(cols):
-        if "student" in c or "name" in c or "nombre" in c:
-            return df.columns[i]
-
-    # caso: first + last name
-    if "first name" in cols and "last name" in cols:
-        df["Nombre"] = df["First name"] + " " + df["Last name"]
-        return "Nombre"
-
-    return None
-
-# =========================
-# MULTI FILE UPLOADER
+# MULTI UPLOAD (CLASDOJO FIX)
 # =========================
 uploaded_files = st.file_uploader(
     "Upload ClassDojo reports",
@@ -63,33 +34,40 @@ if uploaded_files:
     dfs = []
 
     for file in uploaded_files:
-        temp_df = read_csv_safe(file)
+        try:
+            temp_df = pd.read_csv(file, sep=";", encoding="latin-1")
+        except:
+            temp_df = pd.read_csv(file)
 
-        name_col = get_name_column(temp_df)
+        # -------- DETECT NAME COLUMN --------
+        name_col = None
+        for col in temp_df.columns:
+            col_l = col.lower()
+            if "student" in col_l or "name" in col_l or "nombre" in col_l:
+                name_col = col
+                break
 
         if name_col is None:
-            st.error(f"❌ No se detectó columna de nombre en {file.name}")
-            st.write(list(temp_df.columns))
+            st.error(f"❌ No se encontró nombre en {file.name}")
+            st.write("Columnas:", list(temp_df.columns))
             continue
 
         temp_df = temp_df.rename(columns={name_col: "Nombre"})
 
-        # =========================
-        # DETECTAR PUNTOS
-        # =========================
-        temp_df["Puntos"] = 0
-
+        # -------- DETECT POINTS COLUMN --------
+        puntos_col = None
         for col in temp_df.columns:
-            col_lower = col.lower()
+            col_l = col.lower()
+            if "total" in col_l or "points" in col_l:
+                puntos_col = col
+                break
 
-            if "positivo" in col_lower or "positive" in col_lower:
-                temp_df["Puntos"] += pd.to_numeric(temp_df[col], errors="coerce").fillna(0)
-
-            if "negativo" in col_lower or "needs" in col_lower:
-                temp_df["Puntos"] -= pd.to_numeric(temp_df[col], errors="coerce").fillna(0)
+        if puntos_col:
+            temp_df["Puntos"] = pd.to_numeric(temp_df[puntos_col], errors="coerce").fillna(0)
+        else:
+            temp_df["Puntos"] = 0
 
         temp_df = temp_df[["Nombre", "Puntos"]]
-
         dfs.append(temp_df)
 
     if dfs:
@@ -97,13 +75,12 @@ if uploaded_files:
         combined_df = combined_df.groupby("Nombre", as_index=False).sum()
 
         st.session_state.df = combined_df
+        df = combined_df
 
         os.makedirs("data", exist_ok=True)
         combined_df.to_csv(DATA_FILE, index=False)
 
-        df = combined_df
-
-        st.success("✅ Archivos cargados correctamente")
+        st.success("✅ Alumnos cargados correctamente")
 
 # =========================
 # MENU
@@ -139,37 +116,36 @@ elif menu == "Student Intelligence":
     st.header("Student Intelligence")
 
     if df.empty:
-        st.warning("No data")
+        st.warning("No hay alumnos cargados")
     else:
         student = st.selectbox("Select student", df["Nombre"].unique())
         puntos = st.number_input("Points (+ / -)", step=1, value=0)
 
         if st.button("Apply ⚡"):
             idx = df[df["Nombre"] == student].index
-
             st.session_state.df.loc[idx, "Puntos"] += puntos
 
             os.makedirs("data", exist_ok=True)
             st.session_state.df.to_csv(DATA_FILE, index=False)
 
-            st.success("Updated")
+            st.success("Actualizado")
 
 # =========================
 # ALERTS
 # =========================
 elif menu == "Alerts Center":
-    st.header("🚨 Alerts")
+    st.header("🚨 Alerts Center")
 
     if not df.empty:
         for _, row in df.iterrows():
             if row["Puntos"] < 0:
-                st.error(f"{row['Nombre']} needs attention")
+                st.error(f"{row['Nombre']} necesita atención")
 
 # =========================
 # REPORTS
 # =========================
 elif menu == "Reports":
-    st.header("Reports")
+    st.header("📊 Reports")
 
     if not df.empty:
         st.dataframe(df)

@@ -13,7 +13,7 @@ st.markdown("## ⚡ Academic Intelligence System 🎮")
 DATA_FILE = "data/students.csv"
 
 # =========================
-# LOAD BASE
+# LOAD
 # =========================
 if "df" not in st.session_state:
     if os.path.exists(DATA_FILE):
@@ -24,7 +24,30 @@ if "df" not in st.session_state:
 df = st.session_state.df
 
 # =========================
-# UPLOAD (CLASDOJO)
+# LEVEL SYSTEM
+# =========================
+def get_level(puntos):
+    if puntos >= 10:
+        return "🔥 Leyenda"
+    elif puntos >= 5:
+        return "⭐ Pro"
+    elif puntos >= 0:
+        return "🙂 Novato"
+    else:
+        return "⚠️ Riesgo"
+
+def get_color(puntos):
+    if puntos >= 10:
+        return "#00ff88"
+    elif puntos >= 5:
+        return "#00c3ff"
+    elif puntos >= 0:
+        return "#ffaa00"
+    else:
+        return "#ff4b4b"
+
+# =========================
+# UPLOAD
 # =========================
 uploaded_files = st.file_uploader(
     "📂 Upload ClassDojo reports",
@@ -68,18 +91,17 @@ if uploaded_files:
 # =========================
 menu = st.sidebar.radio("Menu", [
     "🎮 Dashboard",
-    "⚡ Gamificación",
+    "⚡ Control",
     "🚨 Alerts",
     "📊 Reports"
 ])
 
-# FILTRO
 if not df.empty:
     grupo_sel = st.sidebar.selectbox("🎯 Grupo", df["Grupo"].unique())
     df = df[df["Grupo"] == grupo_sel]
 
 # =========================
-# 🎮 DASHBOARD
+# DASHBOARD PRO
 # =========================
 if menu == "🎮 Dashboard":
 
@@ -89,14 +111,23 @@ if menu == "🎮 Dashboard":
 
         ranking = df.sort_values("Puntos", ascending=False)
 
-        for i, row in ranking.iterrows():
+        for _, row in ranking.iterrows():
 
-            if row["Puntos"] >= 5:
-                st.success(f"🥇 {row['Nombre']} → {row['Puntos']} pts")
-            elif row["Puntos"] >= 0:
-                st.info(f"🥈 {row['Nombre']} → {row['Puntos']} pts")
-            else:
-                st.error(f"⚠️ {row['Nombre']} → {row['Puntos']} pts")
+            level = get_level(row["Puntos"])
+            color = get_color(row["Puntos"])
+
+            st.markdown(f"""
+            <div style="
+                background-color:{color};
+                padding:15px;
+                border-radius:15px;
+                margin-bottom:10px;
+                color:black;
+                font-weight:bold;
+            ">
+                🎮 {row['Nombre']} | {row['Puntos']} pts | {level}
+            </div>
+            """, unsafe_allow_html=True)
 
         st.markdown("---")
 
@@ -111,11 +142,11 @@ if menu == "🎮 Dashboard":
         st.plotly_chart(fig, use_container_width=True)
 
 # =========================
-# ⚡ GAMIFICACIÓN (BOTONES RÁPIDOS)
+# CONTROL (BOTONES PRO)
 # =========================
-elif menu == "⚡ Gamificación":
+elif menu == "⚡ Control":
 
-    st.markdown("### 🎯 Control Rápido (tipo ClassDojo)")
+    st.markdown("### 🎯 Control en Vivo")
 
     if not df.empty:
 
@@ -125,12 +156,12 @@ elif menu == "⚡ Gamificación":
 
         if col1.button("➕ +1"):
             delta = 1
-        elif col2.button("🔥 +2"):
-            delta = 2
+        elif col2.button("🔥 +3"):
+            delta = 3
         elif col3.button("⚠️ -1"):
             delta = -1
-        elif col4.button("💀 -2"):
-            delta = -2
+        elif col4.button("💀 -3"):
+            delta = -3
         else:
             delta = 0
 

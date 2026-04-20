@@ -2,64 +2,78 @@ import streamlit as st
 import pandas as pd
 import os
 
+# =========================
 # CONFIG
+# =========================
 st.set_page_config(page_title="Academic Intelligence System", layout="wide")
 
 st.title("⚡ Academic Intelligence System")
 
 # =========================
-# DATA STORAGE
+# DATA FILE
 # =========================
 DATA_FILE = "data/students.csv"
 
 # =========================
-# INIT SESSION
+# LOAD DATA BASE
 # =========================
 if "df" not in st.session_state:
-    st.session_state.df = pd.DataFrame(columns=["Nombre", "Puntos"])
+    if os.path.exists(DATA_FILE):
+        st.session_state.df = pd.read_csv(DATA_FILE)
+    else:
+        st.session_state.df = pd.DataFrame(columns=["Nombre", "Puntos"])
+
+df = st.session_state.df
 
 # =========================
-# FILE UPLOADER (MULTIPLE)
+# MULTI FILE UPLOADER
 # =========================
-st.sidebar.header("📂 Load ClassDojo Reports")
-
-uploaded_files = st.sidebar.file_uploader(
-    "Upload CSV files",
+uploaded_files = st.file_uploader(
+    "Upload ClassDojo reports (multiple allowed)",
     type=["csv"],
     accept_multiple_files=True
 )
 
 if uploaded_files:
-    all_dfs = []
+    dfs = []
 
     for file in uploaded_files:
         temp_df = pd.read_csv(file)
-        all_dfs.append(temp_df)
+        temp_df["group"] = file.name
+        dfs.append(temp_df)
 
-    merged_df = pd.concat(all_dfs, ignore_index=True)
+    combined_df = pd.concat(dfs, ignore_index=True)
 
-    # LIMPIEZA BÁSICA (ajusta si cambia formato)
-    if "Nombre" in merged_df.columns:
-        students = merged_df["Nombre"].unique()
-        new_df = pd.DataFrame({
-            "Nombre": students,
-            "Puntos": [0]*len(students)
-        })
+    if "Nombre" in combined_df.columns:
 
-        st.session_state.df = new_df
+        # Crear columna puntos si no existe
+        if "Puntos" not in combined_df.columns:
+
+            pos_cols = [c for c in combined_df.columns if "positivo" in c.lower()]
+            neg_cols = [c for c in combined_df.columns if "negativo" in c.lower() or "necesita" in c.lower()]
+
+            combined_df["Puntos"] = 0
+
+            if pos_cols:
+                combined_df["Puntos"] += combined_df[pos_cols].sum(axis=1)
+
+            if neg_cols:
+                combined_df["Puntos"] -= combined_df[neg_cols].sum(axis=1)
+
+        combined_df = combined_df[["Nombre", "Puntos"]]
+        combined_df = combined_df.groupby("Nombre", as_index=False).sum()
+
+        st.session_state.df = combined_df
 
         os.makedirs("data", exist_ok=True)
         st.session_state.df.to_csv(DATA_FILE, index=False)
 
-        st.sidebar.success("✅ Students loaded correctly")
+        df = st.session_state.df
 
-# =========================
-# LOAD SAVED DATA
-# =========================
-if os.path.exists(DATA_FILE):
-    st.session_state.df = pd.read_csv(DATA_FILE)
+        st.success("Files loaded successfully ⚡")
 
-df = st.session_state.df
+    else:
+        st.error("Column 'Nombre' not found in files")
 
 # =========================
 # MENU
@@ -97,7 +111,7 @@ elif menu == "Student Intelligence":
     st.header("Student Intelligence")
 
     if df.empty:
-        st.warning("Upload students first")
+        st.warning("No students loaded")
     else:
         students = df["Nombre"].unique()
 
@@ -113,6 +127,9 @@ elif menu == "Student Intelligence":
 
             if len(idx) > 0:
                 st.session_state.df.loc[idx, "Puntos"] += puntos
+            else:
+                new_row = pd.DataFrame([[student, puntos]], columns=["Nombre", "Puntos"])
+                st.session_state.df = pd.concat([st.session_state.df, new_row], ignore_index=True)
 
             os.makedirs("data", exist_ok=True)
             st.session_state.df.to_csv(DATA_FILE, index=False)
@@ -128,4 +145,26 @@ elif menu == "Alerts Center":
 
     if df.empty:
         st.warning("No data")
-    else
+    else:
+        for i, row in df.iterrows():
+            if row["Puntos"] < 0:
+                st.error(f"{row['Nombre']} → Needs attention")
+
+# =========================
+# REPORTS
+# =========================
+elif menu == "Reports":
+
+    st.header("📊 Reports")
+
+    if df.empty:
+        st.warning("No data")
+    else:
+        st.dataframe(df)
+
+        st.download_button(
+            "Download CSV",
+            df.to_csv(index=False),
+            "report.csv",
+            "text/csv"
+        )

@@ -9,10 +9,43 @@ import plotly.express as px
 st.set_page_config(page_title="Academic Intelligence System", layout="wide")
 st.markdown("## ⚡ Academic Intelligence System 🎮🧠")
 
-DATA_FILE = "data/students.csv"
+DATA_DIR = "data"
+os.makedirs(DATA_DIR, exist_ok=True)
 
 # =========================
-# LOAD BASE
+# AUTH SIMPLE (PLATAFORMA BASE)
+# =========================
+USERS = {
+    "teacher1": "1234",
+    "teacher2": "abcd"
+}
+
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+if st.session_state.user is None:
+    st.subheader("🔐 Login")
+
+    username = st.text_input("Usuario")
+    password = st.text_input("Contraseña", type="password")
+
+    if st.button("Entrar"):
+        if username in USERS and USERS[username] == password:
+            st.session_state.user = username
+            st.success("Acceso concedido")
+            st.rerun()
+        else:
+            st.error("Credenciales incorrectas")
+
+    st.stop()
+
+# =========================
+# DATA FILE POR USUARIO
+# =========================
+DATA_FILE = f"{DATA_DIR}/{st.session_state.user}_students.csv"
+
+# =========================
+# LOAD DATA
 # =========================
 if "df" not in st.session_state:
     if os.path.exists(DATA_FILE):
@@ -50,7 +83,12 @@ def get_color(p):
     else: return "#ff4b4b"
 
 # =========================
-# UPLOAD CLASDOJO REAL
+# MODO MOVIL
+# =========================
+is_mobile = st.sidebar.toggle("📱 Modo móvil", value=True)
+
+# =========================
+# UPLOAD CLASDOJO
 # =========================
 uploaded_files = st.file_uploader(
     "📂 Upload ClassDojo reports",
@@ -64,10 +102,8 @@ if uploaded_files:
     for file in uploaded_files:
         temp_df = pd.read_csv(file, sep=",", encoding="utf-8-sig")
 
-        # grupo desde nombre archivo
         grupo = file.name.split("_")[1] if "_" in file.name else file.name
 
-        # columna real
         temp_df = temp_df.rename(columns={"Estudiante": "Nombre"})
 
         positivos = pd.to_numeric(temp_df["Positivo"], errors="coerce").fillna(0)
@@ -85,13 +121,11 @@ if uploaded_files:
     st.session_state.df = combined_df
     df = combined_df
 
-    os.makedirs("data", exist_ok=True)
     df.to_csv(DATA_FILE, index=False)
-
-    st.success("✅ Datos cargados correctamente")
+    st.success("✅ Datos cargados")
 
 # =========================
-# SIDEBAR
+# SIDEBAR MENU
 # =========================
 menu = st.sidebar.radio("Menu", [
     "🎮 Dashboard",
@@ -100,7 +134,7 @@ menu = st.sidebar.radio("Menu", [
     "📊 Reports"
 ])
 
-# filtro grupo
+# FILTRO GRUPO
 if not df.empty:
     grupo_sel = st.sidebar.selectbox("🎯 Grupo", df["Grupo"].unique())
     df = df[df["Grupo"] == grupo_sel]
@@ -116,8 +150,15 @@ if menu == "🎮 Dashboard":
 
         ranking = df.sort_values("Puntos", ascending=False)
 
+        # móvil compacto
+        if is_mobile:
+            top = ranking.head(3)
+            for _, row in top.iterrows():
+                st.success(f"{row['Nombre']} → {row['Puntos']} pts")
+
         for _, row in ranking.iterrows():
             p = row["Puntos"]
+
             st.markdown(f"""
             <div style="
                 background-color:{get_color(p)};
@@ -143,6 +184,7 @@ if menu == "🎮 Dashboard":
             color="Puntos",
             title="📊 Performance"
         )
+
         st.plotly_chart(fig, use_container_width=True)
 
 # =========================
@@ -150,24 +192,34 @@ if menu == "🎮 Dashboard":
 # =========================
 elif menu == "⚡ Control":
 
-    st.markdown("### 🎯 Control en Vivo")
+    st.markdown("### 🎯 Control rápido")
 
     if not df.empty:
 
-        student = st.selectbox("Selecciona alumno", df["Nombre"].unique())
+        student = st.selectbox("Alumno", df["Nombre"].unique())
 
-        col1, col2, col3, col4 = st.columns(4)
+        if is_mobile:
+            col1, col2 = st.columns(2)
 
-        if col1.button("➕ +1"):
-            delta = 1
-        elif col2.button("🔥 +3"):
-            delta = 3
-        elif col3.button("⚠️ -1"):
-            delta = -1
-        elif col4.button("💀 -3"):
-            delta = -3
+            if col1.button("➕ +1", use_container_width=True):
+                delta = 1
+            elif col2.button("➖ -1", use_container_width=True):
+                delta = -1
+            else:
+                delta = 0
         else:
-            delta = 0
+            col1, col2, col3, col4 = st.columns(4)
+
+            if col1.button("➕ +1"):
+                delta = 1
+            elif col2.button("🔥 +3"):
+                delta = 3
+            elif col3.button("⚠️ -1"):
+                delta = -1
+            elif col4.button("💀 -3"):
+                delta = -3
+            else:
+                delta = 0
 
         if delta != 0:
             idx = st.session_state.df[
@@ -178,27 +230,26 @@ elif menu == "⚡ Control":
             st.session_state.df.loc[idx, "Puntos"] += delta
             st.session_state.df.to_csv(DATA_FILE, index=False)
 
-            st.success(f"{student} → {delta} pts")
+            st.success(f"{student}: {delta} pts")
 
 # =========================
-# ALERTAS INTELIGENTES
+# ALERTS INTELIGENTES
 # =========================
 elif menu == "🚨 Alerts":
 
     st.markdown("### 🚨 Alertas Inteligentes")
 
     if not df.empty:
-
         riesgo = df[df["Puntos"] < 0]
         lideres = df[df["Puntos"] >= 10]
 
         st.markdown("#### ⚠️ Riesgo alto")
         for _, row in riesgo.iterrows():
-            st.error(f"{row['Nombre']} → intervención inmediata")
+            st.error(f"{row['Nombre']} → intervención")
 
         st.markdown("#### 🏆 Líderes")
         for _, row in lideres.iterrows():
-            st.success(f"{row['Nombre']} → líder del grupo")
+            st.success(f"{row['Nombre']} → líder")
 
 # =========================
 # REPORTES

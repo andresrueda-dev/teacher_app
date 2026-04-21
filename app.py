@@ -8,20 +8,47 @@ st.title("🎓 Teacher Control System")
 menu = st.sidebar.selectbox("Menu", ["Login", "Register"])
 
 # -------- LOGIN --------
-def login_user(email, password):
-    try:
-        users = db.collection("users").stream()
+if menu == "Login":
+    st.subheader("Login")
 
-        for user in users:
-            data = user.to_dict()
+    email = st.text_input("Email")
+    password = st.text_input("Password", type="password")
 
-            if data["email"] == email and data["password"] == password:
-                return True, "Login successful"
+    if st.button("Login"):
+        if email and password:
+            ok, msg = login_user(email, password)
 
-        return False, "User or password incorrect"
+            if ok:
+                st.session_state["user"] = email
+                st.success("Welcome 🔥")
+                st.rerun()
+            else:
+                st.error(msg)
+        else:
+            st.warning("Fill all fields")
 
-    except Exception as e:
-        return False, str(e)
+# -------- REGISTER --------
+if menu == "Register":
+    st.subheader("Create Account")
+
+    email = st.text_input("New email")
+    password = st.text_input("New password", type="password")
+
+    if st.button("Create account"):
+        try:
+            ref = db.collection("users").document(email)
+
+            ref.set({
+                "email": email,
+                "password": password
+            })
+
+            st.success("✅ Account created")
+            st.session_state["user"] = email
+            st.rerun()
+
+        except Exception as e:
+            st.error(str(e))
 
 # -------- REGISTER --------
 elif menu == "Register":

@@ -45,22 +45,17 @@ elif menu == "Register":
 
                 st.write("1. referencia creada")
 
-                exists = ref.get().exists
-                st.write("2. existe?:", exists)
+                # 🔥 GUARDADO DIRECTO (SIN VALIDACIÓN)
+                ref.set({
+                    "email": email,
+                    "password": password
+                })
 
-                if exists:
-                    st.error("Usuario ya existe")
-                else:
-                    ref.set({
-                        "email": email,
-                        "password": password
-                    })
+                st.success("✅ GUARDADO REAL")
+                st.write("2. documento creado")
 
-                    st.success("✅ GUARDADO REAL")
-                    st.write("3. documento creado")
-
-                    st.session_state["user"] = email
-                    st.rerun()
+                st.session_state["user"] = email
+                st.rerun()
 
             except Exception as e:
                 st.error("ERROR REAL:")

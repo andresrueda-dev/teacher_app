@@ -35,21 +35,18 @@ elif menu == "Register":
     password = st.text_input("New password", type="password")
 
     if st.button("Create account"):
-        if email and password:
-            ok, msg = register_user(email, password)
+        st.write("🔍 intentando guardar...")
 
-            if ok:
-                st.success("Account created ✅")
-                
-                # 🔥 AUTO LOGIN
-                st.session_state["user"] = email
-                
-                st.rerun()
-            else:
-                st.error(msg)
+        ok, msg = register_user(email, password)
+
+        st.write("RESULT:", ok, msg)
+
+        if ok:
+            st.success("Account created ✅")
+            st.session_state["user"] = email
+            st.rerun()
         else:
-            st.warning("Fill all fields")
-
+            st.error(msg)
 # -------- DASHBOARD --------
 if "user" in st.session_state:
 

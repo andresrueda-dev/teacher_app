@@ -9,16 +9,23 @@ menu = st.sidebar.selectbox("Menu", ["Login", "Register"])
 
 # -------- LOGIN --------
 if menu == "Login":
+    st.subheader("Login")
+
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
 
     if st.button("Login"):
-        ok, msg = login_user(email, password)
-        if ok:
-            st.session_state["user"] = email
-            st.success(msg)
+        if email and password:
+            ok, msg = login_user(email, password)
+
+            if ok:
+                st.session_state["user"] = email
+                st.success("Welcome 🔥")
+                st.rerun()
+            else:
+                st.error(msg)
         else:
-            st.error(msg)
+            st.warning("Fill all fields")
 
 # -------- REGISTER --------
 elif menu == "Register":

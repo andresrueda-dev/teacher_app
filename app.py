@@ -22,15 +22,26 @@ if menu == "Login":
 
 # -------- REGISTER --------
 elif menu == "Register":
+    st.subheader("Create Account")
+
     email = st.text_input("New email")
     password = st.text_input("New password", type="password")
 
-    if st.button("Create"):
-        ok, msg = register_user(email, password)
-        if ok:
-            st.success(msg)
+    if st.button("Create account"):
+        if email and password:
+            ok, msg = register_user(email, password)
+
+            if ok:
+                st.success("Account created ✅")
+                
+                # 🔥 AUTO LOGIN
+                st.session_state["user"] = email
+                
+                st.rerun()
+            else:
+                st.error(msg)
         else:
-            st.error(msg)
+            st.warning("Fill all fields")
 
 # -------- DASHBOARD --------
 if "user" in st.session_state:

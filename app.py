@@ -1,5 +1,5 @@
 import streamlit as st
-from firebase_config import register_user, login_user, add_student, get_students, add_points
+from firebase_config import register_user, login_user, add_student, get_students, add_points, db
 
 st.set_page_config(page_title="Teacher Pro System")
 

@@ -36,23 +36,34 @@ if menu == "Register":
     reg_password = st.text_input("New password", type="password", key="reg_pass")
 
     if st.button("Create account"):
+        st.write("🔍 Procesando...")
+
         if not reg_email or not reg_password:
             st.warning("Fill all fields")
         else:
             try:
                 ref = db.collection("users").document(reg_email)
 
+                # 🔥 GUARDAR
                 ref.set({
                     "email": reg_email,
                     "password": reg_password
                 })
 
-                st.success("✅ Account created")
+                st.success("✅ Usuario guardado correctamente")
+
+                # 🔍 VERIFICAR QUE EXISTE
+                check = ref.get()
+                if check.exists:
+                    st.write("✔ Confirmado en base de datos")
+
+                # AUTO LOGIN
                 st.session_state["user"] = reg_email
                 st.rerun()
 
             except Exception as e:
-                st.error(str(e))
+                st.error("❌ ERROR:")
+                st.write(e)
 
 
 # -------- DASHBOARD --------

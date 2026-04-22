@@ -1,72 +1,72 @@
 import streamlit as st
 from firebase_config import login_user, add_student, get_students, add_points, db
+
 st.set_page_config(page_title="Teacher Pro System")
 
 st.title("🎓 Teacher Control System")
 
+# 🔥 BOTÓN LOGOUT
+if st.sidebar.button("Cerrar sesión"):
+    st.session_state.clear()
+    st.rerun()
+
+# 🔍 DEBUG (puedes borrarlo después)
+st.sidebar.write("DEBUG USER:", st.session_state.get("user"))
+
 menu = st.sidebar.selectbox("Menu", ["Login", "Register"])
 
-# -------- LOGIN --------
-if menu == "Login":
-    st.subheader("Login")
+# -------- SI NO HAY USUARIO → LOGIN/REGISTER --------
+if "user" not in st.session_state:
 
-    login_email = st.text_input("Email", key="login_email")
-    login_password = st.text_input("Password", type="password", key="login_pass")
+    # -------- LOGIN --------
+    if menu == "Login":
+        st.subheader("Login")
 
-    if st.button("Login"):
-        if login_email and login_password:
-            ok, msg = login_user(login_email, login_password)
+        login_email = st.text_input("Email", key="login_email")
+        login_password = st.text_input("Password", type="password", key="login_pass")
 
-            if ok:
-                st.session_state["user"] = login_email
-                st.success("Welcome 🔥")
-                st.rerun()
+        if st.button("Login"):
+            if login_email and login_password:
+                ok, msg = login_user(login_email, login_password)
+
+                if ok:
+                    st.session_state["user"] = login_email
+                    st.success("Welcome 🔥")
+                    st.rerun()
+                else:
+                    st.error(msg)
             else:
-                st.error(msg)
-        else:
-            st.warning("Fill all fields")
+                st.warning("Fill all fields")
+
+    # -------- REGISTER --------
+    if menu == "Register":
+        st.subheader("Create Account")
+
+        reg_email = st.text_input("New email", key="reg_email")
+        reg_password = st.text_input("New password", type="password", key="reg_pass")
+
+        if st.button("Create account"):
+            if not reg_email or not reg_password:
+                st.warning("Fill all fields")
+            else:
+                try:
+                    ref = db.collection("users").document(reg_email)
+
+                    ref.set({
+                        "email": reg_email,
+                        "password": reg_password
+                    })
+
+                    st.success("✅ Account created")
+                    st.session_state["user"] = reg_email
+                    st.rerun()
+
+                except Exception as e:
+                    st.error(str(e))
 
 
-# -------- REGISTER --------
-if menu == "Register":
-    st.subheader("Create Account")
-
-    reg_email = st.text_input("New email", key="reg_email")
-    reg_password = st.text_input("New password", type="password", key="reg_pass")
-
-    if st.button("Create account"):
-        st.write("🔍 Procesando...")
-
-        if not reg_email or not reg_password:
-            st.warning("Fill all fields")
-        else:
-            try:
-                ref = db.collection("users").document(reg_email)
-
-                # 🔥 GUARDAR
-                ref.set({
-                    "email": reg_email,
-                    "password": reg_password
-                })
-
-                st.success("✅ Usuario guardado correctamente")
-
-                # 🔍 VERIFICAR QUE EXISTE
-                check = ref.get()
-                if check.exists:
-                    st.write("✔ Confirmado en base de datos")
-
-                # AUTO LOGIN
-                st.session_state["user"] = reg_email
-                st.rerun()
-
-            except Exception as e:
-                st.error("❌ ERROR:")
-                st.write(e)
-
-
-# -------- DASHBOARD --------
-if "user" in st.session_state:
+# -------- SI HAY USUARIO → DASHBOARD --------
+else:
 
     st.sidebar.success(f"👤 {st.session_state['user']}")
 

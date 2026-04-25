@@ -1,7 +1,7 @@
 import streamlit as st
-import firebase_admin
-from firebase_admin import credentials, firestore
-import hashlib
+
+st.write(type(st.secrets.get("firebase")))
+st.write(st.secrets.get("firebase"))
 
 # ---------------- FIREBASE INIT ----------------
 if not firebase_admin._apps:

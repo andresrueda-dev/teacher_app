@@ -1,1 +1,26 @@
 Nombre,Puntos
+# ---------------- DEMO DATA ----------------
+def load_demo_data(user):
+    demo_students = [
+        {"name": "Ana", "points": 12},
+        {"name": "Luis", "points": 5},
+        {"name": "Carlos", "points": -2},
+        {"name": "María", "points": 18},
+        {"name": "Sofía", "points": 9},
+        {"name": "Diego", "points": 0},
+        {"name": "Valeria", "points": 15},
+        {"name": "Jorge", "points": 3}
+    ]
+
+    # borrar datos anteriores del usuario (para que no se dupliquen)
+    docs = db.collection("students").where("user", "==", user).stream()
+    for doc in docs:
+        db.collection("students").document(doc.id).delete()
+
+    # insertar demo
+    for s in demo_students:
+        db.collection("students").add({
+            "user": user,
+            "name": s["name"],
+            "points": s["points"]
+        })

@@ -2,6 +2,7 @@ import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
 import hashlib
+import pandas as pd
 
 # ---------------- FIREBASE INIT ----------------
 if not firebase_admin._apps:
@@ -69,14 +70,6 @@ def add_points(student_id, points):
         "points": firestore.Increment(points)
     })
 
-# ---------------- SESSION ----------------
-if "user" not in st.session_state:
-    st.session_state["user"] = None
-
-# ---------------- LOGOUT ----------------
-if st.sidebar.button("Cerrar sesión"):
-    st.session_state["user"] = None
-    st.rerun()
 # ---------------- DEMO DATA ----------------
 def load_demo_data(user):
     demo_students = [
@@ -90,21 +83,38 @@ def load_demo_data(user):
         {"name": "Jorge", "points": 3}
     ]
 
-    # borrar datos anteriores del usuario (para que no se dupliquen)
     docs = db.collection("students").where("user", "==", user).stream()
     for doc in docs:
         db.collection("students").document(doc.id).delete()
 
-    # insertar demo
     for s in demo_students:
         db.collection("students").add({
             "user": user,
             "name": s["name"],
             "points": s["points"]
         })
-        
-# ---------------- MENU ----------------
-menu = st.sidebar.selectbox("Menu", ["Login", "Register"])
+
+# ---------------- SESSION ----------------
+if "user" not in st.session_state:
+    st.session_state["user"] = None
+
+# ---------------- SIDEBAR ----------------
+st.sidebar.title("Menu")
+
+if st.session_state["user"]:
+    st.sidebar.success(f"👤 {st.session_state['user']}")
+
+    if st.sidebar.button("Cerrar sesión"):
+        st.session_state["user"] = None
+        st.rerun()
+
+    st.sidebar.markdown("### 🧪 Demo")
+    if st.sidebar.button("Cargar datos demo"):
+        load_demo_data(st.session_state["user"])
+        st.success("Datos demo cargados 🚀")
+        st.rerun()
+
+menu = st.sidebar.selectbox("Navigation", ["Login", "Register"])
 
 # =========================================================
 # ---------------- SIN USUARIO ----------------
@@ -151,13 +161,14 @@ if not st.session_state["user"]:
 # ---------------- CON USUARIO ----------------
 # =========================================================
 else:
-    st.sidebar.success(f"👤 {st.session_state['user']}")
     st.title("📊 Classroom Panel")
 
-    tab1, tab2, tab3 = st.tabs(["Students", "Points", "Strategy"])
+    tab1, tab2, tab3 = st.tabs(["Students", "Points", "Dashboard"])
 
     # -------- STUDENTS --------
     with tab1:
+        st.subheader("Add student")
+
         name = st.text_input("Student name")
 
         if st.button("Add student"):
@@ -167,6 +178,8 @@ else:
                 st.rerun()
             else:
                 st.warning("Enter a name")
+
+        st.divider()
 
         students = get_students(st.session_state["user"])
 
@@ -178,6 +191,8 @@ else:
 
     # -------- POINTS --------
     with tab2:
+        st.subheader("Manage points")
+
         students = get_students(st.session_state["user"])
 
         if students:
@@ -196,15 +211,35 @@ else:
         else:
             st.info("No students")
 
-    # -------- STRATEGY --------
+    # -------- DASHBOARD --------
     with tab3:
+        st.subheader("📊 Class Dashboard")
+
         students = get_students(st.session_state["user"])
 
         if students:
-            best = max(students, key=lambda x: x["points"])
-            worst = min(students, key=lambda x: x["points"])
+            df = pd.DataFrame(students)
+            df = df.sort_values(by="points", ascending=False)
 
-            st.success(f"🏆 Top: {best['name']} ({best['points']})")
-            st.warning(f"⚠ Needs attention: {worst['name']} ({worst['points']})")
+            st.markdown("### 🏆 Top Students")
+            for _, row in df.head(3).iterrows():
+                st.success(f"{row['name']} — {row['points']} pts")
+
+            st.markdown("### ⚠ Students at Risk")
+            risk = df[df["points"] <= 0]
+
+            if not risk.empty:
+                for _, row in risk.iterrows():
+                    st.warning(f"{row['name']} — {row['points']} pts")
+            else:
+                st.info("No students at risk")
+
+            st.markdown("### 📊 Points Chart")
+            chart_df = df[["name", "points"]].set_index("name")
+            st.bar_chart(chart_df)
+
+            st.markdown("### 📋 Data Table")
+            st.dataframe(df)
+
         else:
             st.info("Add students first")

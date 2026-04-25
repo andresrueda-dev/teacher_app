@@ -5,7 +5,7 @@ import hashlib
 
 # ---------------- FIREBASE INIT ----------------
 if not firebase_admin._apps:
- cred = credentials.Certificate(dict(st.secrets["firebase"]))
+    cred = credentials.Certificate(dict(st.secrets["firebase"]))
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
@@ -16,12 +16,12 @@ def hash_password(password):
 
 # ---------------- AUTH ----------------
 def register_user(email, password):
-    user_ref = db.collection("users").document(email)
+    ref = db.collection("users").document(email)
 
-    if user_ref.get().exists:
+    if ref.get().exists:
         return False, "User already exists"
 
-    user_ref.set({
+    ref.set({
         "email": email,
         "password": hash_password(password)
     })
@@ -30,8 +30,8 @@ def register_user(email, password):
 
 
 def login_user(email, password):
-    user_ref = db.collection("users").document(email)
-    user = user_ref.get()
+    ref = db.collection("users").document(email)
+    user = ref.get()
 
     if not user.exists:
         return False, "User not found"
@@ -54,13 +54,13 @@ def add_student(user, name):
 
 def get_students(user):
     docs = db.collection("students").where("user", "==", user).stream()
-
+    
     students = []
     for doc in docs:
         data = doc.to_dict()
         data["id"] = doc.id
         students.append(data)
-
+    
     return students
 
 
@@ -133,8 +133,6 @@ else:
 
     # -------- STUDENTS --------
     with tab1:
-        st.subheader("Add student")
-
         name = st.text_input("Student name")
 
         if st.button("Add student"):
@@ -144,8 +142,6 @@ else:
                 st.rerun()
             else:
                 st.warning("Enter a name")
-
-        st.divider()
 
         students = get_students(st.session_state["user"])
 
@@ -157,8 +153,6 @@ else:
 
     # -------- POINTS --------
     with tab2:
-        st.subheader("Manage points")
-
         students = get_students(st.session_state["user"])
 
         if students:
@@ -175,12 +169,10 @@ else:
                     add_points(s["id"], -1)
                     st.rerun()
         else:
-            st.info("No students available")
+            st.info("No students")
 
     # -------- STRATEGY --------
     with tab3:
-        st.subheader("Class insights")
-
         students = get_students(st.session_state["user"])
 
         if students:
@@ -190,4 +182,4 @@ else:
             st.success(f"🏆 Top: {best['name']} ({best['points']})")
             st.warning(f"⚠ Needs attention: {worst['name']} ({worst['points']})")
         else:
-            st.info("Add students to see insights")
+            st.info("Add students first")

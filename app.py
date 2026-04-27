@@ -4,13 +4,15 @@ from firebase_admin import credentials, firestore
 import hashlib
 import pandas as pd
 
+# ---------------- CONFIG ----------------
+st.set_page_config(page_title="Teacher App", layout="wide")
+
 # ---------------- FIREBASE INIT ----------------
 if not firebase_admin._apps:
     cred = credentials.Certificate(dict(st.secrets["firebase"]))
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
-
 # ---------------- SECURITY ----------------
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
@@ -28,7 +30,6 @@ def register_user(email, password):
     })
 
     return True, "Account created"
-
 
 def login_user(email, password):
     ref = db.collection("users").document(email)
@@ -52,7 +53,6 @@ def add_student(user, name):
         "points": 0
     })
 
-
 def get_students(user):
     docs = db.collection("students").where("user", "==", user).stream()
     
@@ -64,7 +64,6 @@ def get_students(user):
     
     return students
 
-
 def add_points(student_id, points):
     db.collection("students").document(student_id).update({
         "points": firestore.Increment(points)
@@ -72,17 +71,19 @@ def add_points(student_id, points):
 
 # ---------------- DEMO DATA ----------------
 def load_demo_data(user):
-  st.sidebar.markdown("### 🧪 Demo")
+    demo_students = [
+        {"name": "Ana", "points": 5},
+        {"name": "Luis", "points": 2},
+        {"name": "Carlos", "points": -1},
+        {"name": "Sofía", "points": 8},
+    ]
 
-if st.sidebar.button("Cargar datos demo"):
-    load_demo_data(st.session_state["user"])
-    st.success("Datos demo cargados 🚀")
-    st.rerun()
-
+    # borrar existentes
     docs = db.collection("students").where("user", "==", user).stream()
     for doc in docs:
         db.collection("students").document(doc.id).delete()
 
+    # insertar demo
     for s in demo_students:
         db.collection("students").add({
             "user": user,
@@ -92,30 +93,28 @@ if st.sidebar.button("Cargar datos demo"):
 
 # ---------------- SESSION ----------------
 if "user" not in st.session_state:
-    st.session_state["user"] = None
+    st.session_state.user = None
 
 # ---------------- SIDEBAR ----------------
 st.sidebar.title("Menu")
 
-if st.session_state["user"]:
-    st.sidebar.success(f"👤 {st.session_state['user']}")
+if st.session_state.user:
+    st.sidebar.success(f"👤 {st.session_state.user}")
 
-    if st.sidebar.button("Cerrar sesión"):
-        st.session_state["user"] = None
+    if st.sidebar.button("Cerrar sesión", key="logout_btn"):
+        st.session_state.user = None
         st.rerun()
 
     st.sidebar.markdown("### 🧪 Demo")
-    if st.sidebar.button("Cargar datos demo"):
-        load_demo_data(st.session_state["user"])
+
+    if st.sidebar.button("Cargar datos demo", key="demo_btn"):
+        load_demo_data(st.session_state.user)
         st.success("Datos demo cargados 🚀")
         st.rerun()
 
 menu = st.sidebar.selectbox("Navigation", ["Login", "Register"])
 
-# =========================================================
-# ---------------- SIN USUARIO ----------------
-# =========================================================
-if not st.session_state["user"]:
+if not st.session_state.user:
 
     if menu == "Login":
         st.title("🔐 Login")
@@ -123,12 +122,12 @@ if not st.session_state["user"]:
         email = st.text_input("Email")
         password = st.text_input("Password", type="password")
 
-        if st.button("Login"):
+        if st.button("Login", key="login_btn"):
             if email and password:
                 ok, msg = login_user(email, password)
 
                 if ok:
-                    st.session_state["user"] = email
+                    st.session_state.user = email
                     st.success("Welcome 🔥")
                     st.rerun()
                 else:
@@ -142,7 +141,7 @@ if not st.session_state["user"]:
         email = st.text_input("New email")
         password = st.text_input("New password", type="password")
 
-        if st.button("Create account"):
+        if st.button("Create account", key="register_btn"):
             if email and password:
                 ok, msg = register_user(email, password)
 
@@ -153,23 +152,19 @@ if not st.session_state["user"]:
             else:
                 st.warning("Fill all fields")
 
-# =========================================================
-# ---------------- CON USUARIO ----------------
-# =========================================================
 else:
     st.title("📊 Classroom Panel")
 
     tab1, tab2, tab3 = st.tabs(["Students", "Points", "Dashboard"])
 
-    # -------- STUDENTS --------
     with tab1:
         st.subheader("Add student")
 
         name = st.text_input("Student name")
 
-        if st.button("Add student"):
+        if st.button("Add student", key="add_student_btn"):
             if name:
-                add_student(st.session_state["user"], name)
+                add_student(st.session_state.user, name)
                 st.success("Student added")
                 st.rerun()
             else:
@@ -177,7 +172,7 @@ else:
 
         st.divider()
 
-        students = get_students(st.session_state["user"])
+        students = get_students(st.session_state.user)
 
         if students:
             for s in students:
@@ -185,11 +180,10 @@ else:
         else:
             st.info("No students yet")
 
-    # -------- POINTS --------
     with tab2:
         st.subheader("Manage points")
 
-        students = get_students(st.session_state["user"])
+        students = get_students(st.session_state.user)
 
         if students:
             for s in students:
@@ -197,21 +191,20 @@ else:
 
                 col1.write(f"{s['name']} ({s['points']})")
 
-                if col2.button(f"+1 {s['id']}"):
+                if col2.button("+1", key=f"plus_{s['id']}"):
                     add_points(s["id"], 1)
                     st.rerun()
 
-                if col3.button(f"-1 {s['id']}"):
+                if col3.button("-1", key=f"minus_{s['id']}"):
                     add_points(s["id"], -1)
                     st.rerun()
         else:
             st.info("No students")
 
-    # -------- DASHBOARD --------
     with tab3:
         st.subheader("📊 Class Dashboard")
 
-        students = get_students(st.session_state["user"])
+        students = get_students(st.session_state.user)
 
         if students:
             df = pd.DataFrame(students)
@@ -239,3 +232,6 @@ else:
 
         else:
             st.info("Add students first")
+
+
+

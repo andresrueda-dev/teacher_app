@@ -4,6 +4,24 @@ from firebase_admin import credentials, firestore
 import hashlib
 import pandas as pd
 from datetime import datetime
+import streamlit as st
+
+if "students" not in st.session_state:
+    st.session_state.students = []
+
+st.subheader("➕ Add Students")
+
+new_student = st.text_input("Student name")
+
+if st.button("Add student"):
+    if new_student:
+        st.session_state.students.append({"name": new_student, "points": 0})
+        st.success(f"{new_student} added!")
+
+st.subheader("📋 Student List")
+
+for student in st.session_state.students:
+    st.write(f"{student['name']} - {student['points']} pts")
 
 # ---------------- CONFIG ----------------
 st.set_page_config(page_title="Teacher App", layout="wide")

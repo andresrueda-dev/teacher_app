@@ -1,194 +1,187 @@
 import streamlit as st
 import sqlite3
+from datetime import datetime
 
-st.set_page_config(page_title="Teacher SaaS PRO", layout="wide")
+# ---------------- CONFIG ----------------
+st.set_page_config(page_title="Teacher Manager PRO", layout="wide")
 
-# -------- DB --------
+# ---------------- DB ----------------
 conn = sqlite3.connect("school.db", check_same_thread=False)
 c = conn.cursor()
 
-# -------- TABLES --------
+# ---- TABLES ----
 c.execute("""
 CREATE TABLE IF NOT EXISTS teachers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT
-)
+    username TEXT,
+    password TEXT)
 """)
 
 c.execute("""
 CREATE TABLE IF NOT EXISTS groups (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT,
-    teacher_id INTEGER
-)
+    grade TEXT,
+    teacher_id INTEGER)
 """)
 
 c.execute("""
 CREATE TABLE IF NOT EXISTS students (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT,
-    points INTEGER,
-    group_id INTEGER
-)
+    group_id INTEGER)
+""")
+
+c.execute("""
+CREATE TABLE IF NOT EXISTS attendance (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id INTEGER,
+    date TEXT,
+    status TEXT)
 """)
 
 conn.commit()
 
-# -------- SESSION --------
+# ---------------- LOGIN ----------------
 if "teacher_id" not in st.session_state:
-    st.session_state.teacher_id = None
+    st.title("🔐 Login Teacher")
 
-if "group_id" not in st.session_state:
-    st.session_state.group_id = None
+    user = st.text_input("User")
+    pwd = st.text_input("Password", type="password")
 
-# -------- LOGIN --------
-st.sidebar.title("🔐 Login")
+    if st.button("Login"):
+        c.execute("SELECT id FROM teachers WHERE username=? AND password=?", (user, pwd))
+        result = c.fetchone()
 
-c.execute("SELECT id, name FROM teachers")
-teachers = c.fetchall()
-
-teacher_names = [t[1] for t in teachers]
-
-if teacher_names:
-    selected_teacher = st.sidebar.selectbox("Select Teacher", teacher_names)
-
-    for t in teachers:
-        if t[1] == selected_teacher:
-            st.session_state.teacher_id = t[0]
-else:
-    st.sidebar.warning("Create a teacher first")
-
-# -------- BLOCK IF NO LOGIN --------
-if st.session_state.teacher_id is None:
-    st.title("⚠️ Setup Required")
-    new_teacher = st.text_input("Create Teacher Name")
-
-    if st.button("Create Teacher"):
-        if new_teacher:
-            c.execute("INSERT INTO teachers (name) VALUES (?)", (new_teacher,))
-            conn.commit()
-            st.success("Teacher created. Reload app.")
+        if result:
+            st.session_state.teacher_id = result[0]
+            st.success("Welcome!")
+            st.rerun()
+        else:
+            st.error("User not found")
 
     st.stop()
 
-# -------- SIDEBAR MENU --------
-menu = st.sidebar.radio("Menu", ["Groups", "Class", "Ranking"])
+# ---------------- MENU ----------------
+menu = st.sidebar.selectbox("Menu", [
+    "Dashboard",
+    "Groups",
+    "Students",
+    "Attendance"
+])
 
-st.title("📱 Teacher SaaS PRO")
+# ---------------- DASHBOARD ----------------
+if menu == "Dashboard":
+    st.title("📊 Dashboard")
 
-# -------- GROUPS --------
-if menu == "Groups":
-    st.header("📚 Manage Groups")
+    c.execute("SELECT COUNT(*) FROM students")
+    total_students = c.fetchone()[0]
 
-    new_group = st.text_input("New group (1A, 2B...)")
+    c.execute("SELECT COUNT(*) FROM groups")
+    total_groups = c.fetchone()[0]
 
-    if st.button("Create group"):
+    st.metric("Students", total_students)
+    st.metric("Groups", total_groups)
+
+# ---------------- GROUPS ----------------
+elif menu == "Groups":
+    st.title("🏫 Groups")
+
+    grade = st.selectbox("Grade", ["1", "2", "3"])
+    group_letter = st.text_input("Group (A, B...)")
+
+    if st.button("Create Group"):
+        group_name = f"{grade}{group_letter}"
+
         c.execute(
-            "INSERT INTO groups (name, teacher_id) VALUES (?, ?)",
-            (new_group, st.session_state.teacher_id)
+            "INSERT INTO groups (name, grade, teacher_id) VALUES (?, ?, ?)",
+            (group_name, grade, st.session_state.teacher_id)
         )
         conn.commit()
         st.success("Group created")
 
-    # Show groups
-    c.execute(
-        "SELECT id, name FROM groups WHERE teacher_id=?",
-        (st.session_state.teacher_id,)
-    )
-    groups = c.fetchall()
-
     st.subheader("Your Groups")
-    for g in groups:
-        st.write(g[1])
 
-    # Upload students
-    st.subheader("➕ Upload Students")
-    selected_group_name = st.selectbox(
-        "Select group",
-        [g[1] for g in groups] if groups else []
-    )
-
-    group_id = None
-    for g in groups:
-        if g[1] == selected_group_name:
-            group_id = g[0]
-
-    bulk = st.text_area("Paste students (one per line)")
-
-    if st.button("Upload list"):
-        if group_id and bulk:
-            for name in bulk.split("\n"):
-                name = name.strip()
-                if name:
-                    c.execute(
-                        "INSERT INTO students (name, points, group_id) VALUES (?, 0, ?)",
-                        (name, group_id)
-                    )
-            conn.commit()
-            st.success("Students added")
-
-# -------- CLASS --------
-elif menu == "Class":
-    st.header("🎯 Live Class")
-
-    c.execute(
-        "SELECT id, name FROM groups WHERE teacher_id=?",
-        (st.session_state.teacher_id,)
-    )
+    c.execute("SELECT * FROM groups WHERE teacher_id=?", (st.session_state.teacher_id,))
     groups = c.fetchall()
 
-    if not groups:
-        st.warning("Create a group first")
-        st.stop()
-
-    group_names = [g[1] for g in groups]
-
-    selected_group = st.selectbox("Select group", group_names)
-
     for g in groups:
-        if g[1] == selected_group:
-            st.session_state.group_id = g[0]
+        st.write(f"Grade {g[2]} - Group {g[1]}")
 
-    c.execute(
-        "SELECT id, name, points FROM students WHERE group_id=?",
-        (st.session_state.group_id,)
-    )
-    students = c.fetchall()
+# ---------------- STUDENTS ----------------
+elif menu == "Students":
+    st.title("👥 Students")
 
-    for s in students:
-        col1, col2, col3, col4, col5 = st.columns([3,1,1,1,1])
+    c.execute("SELECT * FROM groups WHERE teacher_id=?", (st.session_state.teacher_id,))
+    groups = c.fetchall()
 
-        col1.write(s[1])
-        col2.write(f"{s[2]} pts")
+    if groups:
+        grades = list(set([g[2] for g in groups]))
+        selected_grade = st.selectbox("Select Grade", grades)
 
-        if col3.button("+1", key=f"add1_{s[0]}"):
-            c.execute("UPDATE students SET points = points + 1 WHERE id=?", (s[0],))
+        filtered_groups = [g for g in groups if g[2] == selected_grade]
+        group_names = [g[1] for g in filtered_groups]
+
+        selected_group = st.selectbox("Select Group", group_names)
+
+        group_id = [g[0] for g in filtered_groups if g[1] == selected_group][0]
+
+        student_name = st.text_input("Student name")
+
+        if st.button("Add Student"):
+            c.execute(
+                "INSERT INTO students (name, group_id) VALUES (?, ?)",
+                (student_name, group_id)
+            )
             conn.commit()
+            st.success("Student added")
 
-        if col4.button("+5", key=f"add5_{s[0]}"):
-            c.execute("UPDATE students SET points = points + 5 WHERE id=?", (s[0],))
-            conn.commit()
+        st.subheader("Students List")
 
-        if col5.button("-1", key=f"sub1_{s[0]}"):
-            c.execute("UPDATE students SET points = points - 1 WHERE id=?", (s[0],))
-            conn.commit()
+        c.execute("SELECT * FROM students WHERE group_id=?", (group_id,))
+        students = c.fetchall()
 
-# -------- RANKING --------
-elif menu == "Ranking":
-    st.header("🏆 Ranking")
+        for s in students:
+            st.write(s[1])
 
-    c.execute(
-        """
-        SELECT students.name, students.points
-        FROM students
-        JOIN groups ON students.group_id = groups.id
-        WHERE groups.teacher_id=?
-        ORDER BY students.points DESC
-        """,
-        (st.session_state.teacher_id,)
-    )
+# ---------------- ATTENDANCE ----------------
+elif menu == "Attendance":
+    st.title("✅ Attendance")
 
-    ranking = c.fetchall()
+    c.execute("SELECT * FROM groups WHERE teacher_id=?", (st.session_state.teacher_id,))
+    groups = c.fetchall()
 
-    for i, s in enumerate(ranking, start=1):
-        st.write(f"{i}. {s[0]} - {s[1]} pts")
+    if groups:
+        grades = list(set([g[2] for g in groups]))
+        selected_grade = st.selectbox("Grade", grades)
+
+        filtered_groups = [g for g in groups if g[2] == selected_grade]
+        group_names = [g[1] for g in filtered_groups]
+
+        selected_group = st.selectbox("Group", group_names)
+
+        group_id = [g[0] for g in filtered_groups if g[1] == selected_group][0]
+
+        c.execute("SELECT * FROM students WHERE group_id=?", (group_id,))
+        students = c.fetchall()
+
+        today = datetime.now().strftime("%Y-%m-%d")
+
+        for s in students:
+            col1, col2 = st.columns([3,2])
+            col1.write(s[1])
+
+            status = col2.radio(
+                f"att_{s[0]}",
+                ["✔", "❌", "⏰"],
+                horizontal=True
+            )
+
+            if st.button(f"save_{s[0]}"):
+                c.execute(
+                    "INSERT INTO attendance (student_id, date, status) VALUES (?, ?, ?)",
+                    (s[0], today, status)
+                )
+                conn.commit()
+
+        st.success("Attendance saved")

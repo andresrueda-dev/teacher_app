@@ -5,7 +5,7 @@ import requests
 st.set_page_config(page_title="Teacher SaaS PRO", layout="wide")
 
 SUPABASE_URL = "https://lzyrlveqjuoidlznkslj.supabase.co"
-SUPABASE_KEY = "PEGA_AQUI_TU_publishable_key"
+SUPABASE_KEY = "sb_publishable_XXXXX_TU_KEY_REAL"
 
 # ---------------- LOGIN FUNCTION ----------------
 def login(email, password):

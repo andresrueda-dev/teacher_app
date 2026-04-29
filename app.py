@@ -1,205 +1,165 @@
-import requests
 import streamlit as st
+import requests
+
+# ---------------- CONFIG ----------------
+st.set_page_config(page_title="Teacher SaaS PRO", layout="wide")
 
 SUPABASE_URL = "https://lzyrlveqjuoidlznkslj.supabase.co"
 SUPABASE_KEY = "PEGA_AQUI_TU_publishable_key"
 
-def test_connection():
-    url = f"{SUPABASE_URL}/rest/v1/"
-    
+# ---------------- LOGIN ----------------
+def login(email, password):
+    url = f"{SUPABASE_URL}/auth/v1/token?grant_type=password"
+
     headers = {
-        "apikey": SUPABASE_KEY
+        "apikey": SUPABASE_KEY,
+        "Content-Type": "application/json"
     }
 
-    res = requests.get(url, headers=headers)
+    data = {
+        "email": email,
+        "password": password
+    }
+
+    res = requests.post(url, json=data, headers=headers)
 
     if res.status_code == 200:
-        st.success("✅ Connected to Supabase")
+        return res.json()
     else:
-        st.error(f"❌ Error {res.status_code}: {res.text}")
+        return None
 
-test_connection()
+# ---------------- AUTH UI ----------------
+if "user" not in st.session_state:
+    st.title("🔐 Teacher Login")
 
-# ---------------- CONFIG ----------------
-st.set_page_config(page_title="Teacher Manager PRO", layout="wide")
-
-# ---------------- DB ----------------
-conn = sqlite3.connect("school.db", check_same_thread=False)
-c = conn.cursor()
-
-# ---- TABLES ----
-c.execute("""
-CREATE TABLE IF NOT EXISTS teachers (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT,
-    password TEXT)
-""")
-
-c.execute("""
-CREATE TABLE IF NOT EXISTS groups (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT,
-    grade TEXT,
-    teacher_id INTEGER)
-""")
-
-c.execute("""
-CREATE TABLE IF NOT EXISTS students (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT,
-    group_id INTEGER)
-""")
-
-c.execute("""
-CREATE TABLE IF NOT EXISTS attendance (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    student_id INTEGER,
-    date TEXT,
-    status TEXT)
-""")
-
-conn.commit()
-
-# ---------------- LOGIN ----------------
-if "teacher_id" not in st.session_state:
-    st.title("🔐 Login Teacher")
-
-    user = st.text_input("User")
-    pwd = st.text_input("Password", type="password")
+    email = st.text_input("Email")
+    password = st.text_input("Password", type="password")
 
     if st.button("Login"):
-        c.execute("SELECT id FROM teachers WHERE username=? AND password=?", (user, pwd))
-        result = c.fetchone()
+        user = login(email, password)
 
-        if result:
-            st.session_state.teacher_id = result[0]
-            st.success("Welcome!")
+        if user:
+            st.session_state.user = user
+            st.success("Welcome 🚀")
             st.rerun()
         else:
-            st.error("User not found")
+            st.error("Invalid credentials")
 
     st.stop()
 
 # ---------------- MENU ----------------
-menu = st.sidebar.selectbox("Menu", [
-    "Dashboard",
-    "Groups",
-    "Students",
-    "Attendance"
+menu = st.sidebar.radio("Menu", [
+    "🏠 Dashboard",
+    "🏫 Groups",
+    "👥 Students"
 ])
 
+# ---------------- API FUNCTIONS ----------------
+def create_group(name, grade):
+    url = f"{SUPABASE_URL}/rest/v1/groups"
+
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {st.session_state.user['access_token']}",
+        "Content-Type": "application/json"
+    }
+
+    data = {
+        "name": name,
+        "grade": grade,
+        "user_id": st.session_state.user["user"]["id"]
+    }
+
+    requests.post(url, json=data, headers=headers)
+
+
+def get_groups():
+    url = f"{SUPABASE_URL}/rest/v1/groups?user_id=eq.{st.session_state.user['user']['id']}"
+
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {st.session_state.user['access_token']}"
+    }
+
+    res = requests.get(url, headers=headers)
+    return res.json()
+
+
+def add_student(name, group_id):
+    url = f"{SUPABASE_URL}/rest/v1/students"
+
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {st.session_state.user['access_token']}",
+        "Content-Type": "application/json"
+    }
+
+    data = {
+        "name": name,
+        "group_id": group_id
+    }
+
+    requests.post(url, json=data, headers=headers)
+
+
+def get_students(group_id):
+    url = f"{SUPABASE_URL}/rest/v1/students?group_id=eq.{group_id}"
+
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {st.session_state.user['access_token']}"
+    }
+
+    res = requests.get(url, headers=headers)
+    return res.json()
+
 # ---------------- DASHBOARD ----------------
-if menu == "Dashboard":
+if menu == "🏠 Dashboard":
     st.title("📊 Dashboard")
-
-    c.execute("SELECT COUNT(*) FROM students")
-    total_students = c.fetchone()[0]
-
-    c.execute("SELECT COUNT(*) FROM groups")
-    total_groups = c.fetchone()[0]
-
-    st.metric("Students", total_students)
-    st.metric("Groups", total_groups)
+    st.info("Sistema conectado a la nube 🚀")
 
 # ---------------- GROUPS ----------------
-elif menu == "Groups":
-    st.title("🏫 Groups")
+elif menu == "🏫 Groups":
+    st.title("🏫 Create Group")
 
     grade = st.selectbox("Grade", ["1", "2", "3"])
     group_letter = st.text_input("Group (A, B...)")
 
     if st.button("Create Group"):
-        group_name = f"{grade}{group_letter}"
-
-        c.execute(
-            "INSERT INTO groups (name, grade, teacher_id) VALUES (?, ?, ?)",
-            (group_name, grade, st.session_state.teacher_id)
-        )
-        conn.commit()
-        st.success("Group created")
+        name = f"{grade}{group_letter}"
+        create_group(name, grade)
+        st.success("Group created ✅")
 
     st.subheader("Your Groups")
 
-    c.execute("SELECT * FROM groups WHERE teacher_id=?", (st.session_state.teacher_id,))
-    groups = c.fetchall()
+    groups = get_groups()
 
     for g in groups:
-        st.write(f"Grade {g[2]} - Group {g[1]}")
+        st.write(f"📚 Grade {g['grade']} - {g['name']}")
 
 # ---------------- STUDENTS ----------------
-elif menu == "Students":
+elif menu == "👥 Students":
     st.title("👥 Students")
 
-    c.execute("SELECT * FROM groups WHERE teacher_id=?", (st.session_state.teacher_id,))
-    groups = c.fetchall()
+    groups = get_groups()
 
-    if groups:
-        grades = list(set([g[2] for g in groups]))
-        selected_grade = st.selectbox("Select Grade", grades)
+    if not groups:
+        st.warning("Create a group first ⚠️")
+    else:
+        group_names = [g["name"] for g in groups]
+        selected_group = st.selectbox("Select group", group_names)
 
-        filtered_groups = [g for g in groups if g[2] == selected_grade]
-        group_names = [g[1] for g in filtered_groups]
-
-        selected_group = st.selectbox("Select Group", group_names)
-
-        group_id = [g[0] for g in filtered_groups if g[1] == selected_group][0]
+        group_id = [g["id"] for g in groups if g["name"] == selected_group][0]
 
         student_name = st.text_input("Student name")
 
         if st.button("Add Student"):
-            c.execute(
-                "INSERT INTO students (name, group_id) VALUES (?, ?)",
-                (student_name, group_id)
-            )
-            conn.commit()
-            st.success("Student added")
+            add_student(student_name, group_id)
+            st.success("Saved in cloud 🚀")
 
         st.subheader("Students List")
 
-        c.execute("SELECT * FROM students WHERE group_id=?", (group_id,))
-        students = c.fetchall()
+        students = get_students(group_id)
 
         for s in students:
-            st.write(s[1])
-
-# ---------------- ATTENDANCE ----------------
-elif menu == "Attendance":
-    st.title("✅ Attendance")
-
-    c.execute("SELECT * FROM groups WHERE teacher_id=?", (st.session_state.teacher_id,))
-    groups = c.fetchall()
-
-    if groups:
-        grades = list(set([g[2] for g in groups]))
-        selected_grade = st.selectbox("Grade", grades)
-
-        filtered_groups = [g for g in groups if g[2] == selected_grade]
-        group_names = [g[1] for g in filtered_groups]
-
-        selected_group = st.selectbox("Group", group_names)
-
-        group_id = [g[0] for g in filtered_groups if g[1] == selected_group][0]
-
-        c.execute("SELECT * FROM students WHERE group_id=?", (group_id,))
-        students = c.fetchall()
-
-        today = datetime.now().strftime("%Y-%m-%d")
-
-        for s in students:
-            col1, col2 = st.columns([3,2])
-            col1.write(s[1])
-
-            status = col2.radio(
-                f"att_{s[0]}",
-                ["✔", "❌", "⏰"],
-                horizontal=True
-            )
-
-            if st.button(f"save_{s[0]}"):
-                c.execute(
-                    "INSERT INTO attendance (student_id, date, status) VALUES (?, ?, ?)",
-                    (s[0], today, status)
-                )
-                conn.commit()
-
-        st.success("Attendance saved")
+            st.write(f"👤 {s['name']}")
